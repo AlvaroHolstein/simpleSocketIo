@@ -1,36 +1,54 @@
-const app = require("express")();
-const http = require('http').createServer(app);
-const io = require("socket.io")(http);
+const server = require("express")();
+const httpserver = require("http").createServer(server);
+const io = require("socket.io")(httpserver);
+const jzz = require("jzz");
+const port = 3001;
 
-const port = 3000;
+let midiIn = jzz().openMidiIn(function(){ return [2, 1, 0]; });
+let midiOut = jzz().openMidiOut();
 
-app.get('/', (req, res) => {
-    res.send("Ata Teste");
+jzz.requestMIDIAccess()
+.then(() => {
+    console.log("Success on MIDI Access");
+})
+,() => console.error('Fail MIDI Access!!!!')
+
+server.get("/", (req, res) => {
+    res.send("ATRa")
 })
 
+// kinda que estava a funcionar
+server.get("/tocar", async (req, res) => {
+    await midiOut.or('Cannot open MIDI Out port!')
+    .wait(500).send(jzz.MIDI([0x90, 'Eb5', 127]))
+    .wait(500).send(jzz.MIDI([0x90,64,127]))
+    .wait(500).send([0x90,67,127])
+    .wait(500).send([0x90,72,127])
+    .wait(1000).send([0x90,60,0]).send([0x90,64,0]).send([0x90,67,0])
+    .send([0x90,72,0])
+    .and('thank you!')
 
-io.on('connection', (socket) => {
-    console.log("a user connected")
+    res.send("Finito")
+})
 
-    socket.on("mess", (data) => {
-        console.log("on message: " + data)
-    })
-    socket.on('join', (data) => {
-        console.log("join: ", data);
-    })
+io.on("connection", (socket) => {
+    //"Pingar"
+    midiOut.send(jzz.MIDI([0x90, 'Eb5', 127]))
 
-    socket.on('musicnote', data => {
-        console.log("nota musical", data);
-
-    })
-
-    socket.on('disconnect', () => {
-        console.log("disconnect")
+    socket.on("musicnote", (data) => {
+        let value = data.split(':');
+        console.log(value, data);
+        if(value[0] > 61) value[0] = 61
+        if(value[0] < 0) value[0] = 0
+        midiOut.send([0x90, value[0], 74]);
     })
 })
 
-
-
-http.listen(port, () => {
-    console.log(`Listening on ${port}`)
+server.get("/close", async (req, res) => {
+    console.log("a fechar");
+    await jzz.close()
+    res.send("closed")
+})
+httpserver.listen(port, () => {
+    console.log("A ouvir \n port: " + port + "\n");
 })
