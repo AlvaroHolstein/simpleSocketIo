@@ -11,7 +11,7 @@ let midiOut = jzz().openMidiOut();
 jzz.requestMIDIAccess()
     .then(() => {
         console.log("Success on MIDI Access");
-        io.on("connection", mainSocketFunction);\
+        io.on("connection", mainSocketFunction);
     })
     , () => console.error('Fail MIDI Access!!!!')
 
