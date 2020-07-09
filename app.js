@@ -11,7 +11,7 @@ let midiOut = jzz().openMidiOut();
 jzz.requestMIDIAccess()
     .then(() => {
         console.log("Success on MIDI Access");
-        io.on("connection", mainSocketFunction);
+        io.on("connection", mainSocketFunction);\
     })
     , () => console.error('Fail MIDI Access!!!!')
 
@@ -21,6 +21,8 @@ jzz.requestMIDIAccess()
  * por um contador (é o que está atualmente)
  * por um array local, onde a cada connection dá se push para o array e a cada disconnction faz se o splice dessa disconnection
  */
+// E depois podia mandar sempre isto em vez de estar a fazer chamadas À BD...
+// E aqui já dava para controlar o tempo mas.........
 let totalConnectedUsers = 0;
 
 
@@ -33,9 +35,10 @@ function mainSocketFunction(socket) {
     for(let cli in io.sockets.clients()) {
         // console.log(cli, io.sockets.clients().connected)
     }
-    console.log("Entrou o " + totalConnectedUsers + "º"/*, io.sockets.clients().connected*/);
     socket.on("join", (data) => {
         console.log("Entrou o campeão " + data+ ", já são " + totalConnectedUsers)
+        /** A "flag" bradcast faz com que o emit vá para toda a gente menos para quem fez o "pedido" */
+        socket.broadcast.emit('newConnection', data)
     })
 
     socket.on("musicnote", receiveAndPlay)
@@ -44,11 +47,10 @@ function mainSocketFunction(socket) {
     socket.on("drumm", receiveAndPlay)
 
 
-    /** A "flag" bradcast faz com que o emit vá para toda a gente menos para quem fez o "pedido" */
-    socket.broadcast.emit('newConnection', "New Connection!!!!")
+    
 
     /** Mandar para toda a gente quantos users estão disponiveis no momento */
-    socket.emit("totalUsers", totalConnectedUsers);
+    socket.broadcast.emit("totalUsers", totalConnectedUsers);
 
 
     socket.on("disconnect", (data) => {
@@ -61,14 +63,16 @@ function mainSocketFunction(socket) {
 function receiveAndPlay(data) {
     let value = data.split(':');
     console.log(value, data);
-    if (value[0] > 61) value[0] = 61
-    if (value[0] < 0) value[0] = 0
-    midiOut.send([0x90, value[0], 74]);
+    let note = Math.floor(value[0]);
+    if (note > 61) note = 61
+    if (note < 0) note = 0
+    
+    midiOut.send([0x90, note, 74]);
 }
 
 /** Para ter mais opções de teste */
 server.get("/", (req, res) => {
-    res.send("ATRa")
+    res.send("HOME")
 })
 server.get("/tocar", async (req, res) => {
     await midiOut.or('Cannot open MIDI Out port!')
@@ -97,7 +101,7 @@ server.get("/close", async (req, res) => {
 
 httpserver.listen(port, () => {
     midiOut.or('Cannot open MIDI Out port!')
-        .wait(500).send(jzz.MIDI([0x90, 'Eb5', 60]))
+        .wait(500).send(jzz.MIDI([0x90, 'Ab4', 60]))
 
     setTimeout(() => {
         midiOut.allNotesOff(0);
